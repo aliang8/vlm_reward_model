@@ -91,4 +91,6 @@ DS_SHORT_NAME_MAPPING = {
     "ykorkmaz_usc_trossen_rfm_usc_trossen": "usc_trossen",
     # Reward Alignment
     "abraranwar_usc_koch_rewind_rfm_usc_koch_rewind": "usc_koch_rewind",
+    # RoboFAC
+    "aliangdw_robofac_rbm_robofac": "robofac",
 }

@@ -27,9 +27,9 @@ Training needs a **preprocessed** cache from a HuggingFace dataset in RBM format
 
 3. **If you pushed:** download converted repo and set preprocess config:
    ```bash
-   huggingface-cli download YOUR_USERNAME/robofac_rbm --local-dir $ROBOMETER_DATASET_PATH/robofac_rbm
+   huggingface-cli download aliangdw/robofac_rbm --local-dir $ROBOMETER_DATASET_PATH/robofac_rbm
    ```
-   In `preprocess_finetune.yaml`: `train_datasets: ["YOUR_USERNAME/robofac_rbm"]`, `train_subsets: [["robofac"]]`.
+   In `preprocess_finetune.yaml`: `train_datasets: ["aliangdw/robofac_rbm"]`, `train_subsets: [["robofac"]]`.
 
 4. **Preprocess:**
    ```bash
@@ -57,13 +57,23 @@ uv run python train.py \
   model.use_peft=true \
   model.train_progress_head=true \
   model.train_preference_head=true \
-  data.train_datasets=[YOUR_USERNAME/robofac_rbm/robofac] \
-  data.eval_datasets=[YOUR_USERNAME/robofac_rbm/robofac] \
+  data.train_datasets=[aliangdw_robofac_rbm_robofac] \
+  data.eval_datasets=[aliangdw_robofac_rbm_robofac] \
   training.load_from_checkpoint=aliangdw/Robometer-4B \
+  training.per_device_train_batch_size=8 \
   training.max_steps=500 \
   training.output_dir=./logs \
-  training.exp_name=robometer4b_lora_robofac
+  training.exp_name=robometer4b_lora_robofac \
+  logging.log_to=[wandb] \
+  custom_eval.eval_types=[reward_alignment,policy_ranking] \
+  custom_eval.reward_alignment=[aliangdw_robofac_rbm_robofac] \
+  custom_eval.policy_ranking=[aliangdw_robofac_rbm_robofac] \
+  logging.save_best.metric_names=[eval_rew_align/pearson_robofac,eval_p_rank/spearman_robofac] \
+  logging.save_best.greater_is_better=[true,true] \
+  training.overwrite_output_dir=True
 ```
+
+The short name `robofac` is defined in `name_mapping.py` for `aliangdw_robofac_rbm_robofac`.
 
 Multi-GPU: `uv run accelerate launch --config_file robometer/configs/distributed/fsdp.yaml train.py ...` (same overrides). Tune `max_steps`, `learning_rate`, PEFT in `robometer/configs/config.yaml`.
 
@@ -79,13 +89,20 @@ uv run python train.py \
   model.use_peft=false \
   model.train_progress_head=true \
   model.train_preference_head=true \
-  data.train_datasets=[YOUR_USERNAME/robofac_rbm/robofac] \
-  data.eval_datasets=[YOUR_USERNAME/robofac_rbm/robofac] \
+  data.train_datasets=[aliangdw/robofac_rbm/robofac] \
+  data.eval_datasets=[aliangdw/robofac_rbm/robofac] \
   training.load_from_checkpoint=aliangdw/Robometer-4B \
+  training.per_device_train_batch_size=8 \
   training.max_steps=500 \
   training.output_dir=./logs \
-  training.exp_name=robometer4b_full_robofac
+  training.exp_name=robometer4b_full_robofac \
+  logging.log_to=[wandb] \
+  custom_eval.reward_alignment=[aliangdw/robofac_rbm/robofac] \
+  custom_eval.policy_ranking=[aliangdw/robofac_rbm/robofac] \
+  logging.save_best.metric_names=[eval_rew_align/pearson_robofac,eval_p_rank/spearman_robofac] \
+  logging.save_best.greater_is_better=[true,true]
 ```
+
 
 ---
 
@@ -94,7 +111,7 @@ uv run python train.py \
 ```bash
 uv run python robometer/utils/upload_to_hub.py \
   --model_dir ./logs/robometer4b_lora_robofac/checkpoint-500 \
-  --hub_model_id YOUR_USERNAME/robometer-4b-lora-robofac \
+  --hub_model_id aliangdw/robometer-4b-lora-robofac \
   --base_model "Qwen/Qwen3-VL-4B-Instruct" \
   --commit_message "LoRA fine-tune on RoboFAC"
 ```
@@ -107,9 +124,36 @@ Or enable `logging.save_best.upload_to_hub: true` in config for upload during tr
 
 ```bash
 uv run python scripts/example_inference_local.py \
-  --model-path YOUR_USERNAME/robometer-4b-lora-robofac \
+  --model-path aliangdw/robometer-4b-lora-robofac \
   --video /path/to/video.mp4 \
   --task "Insert the cylinder"
 ```
 
-Server: `uv run python robometer/evals/eval_server.py ... model_path=YOUR_USERNAME/robometer-4b-lora-robofac`. Eval: `run_baseline_eval.py` with `reward_model=rbm`, `model_path=...` (see [README](README.md)).
+Server: `uv run python robometer/evals/eval_server.py ... model_path=aliangdw/robometer-4b-lora-robofac`. Eval: `run_baseline_eval.py` with `reward_model=rbm`, `model_path=...` (see [README](README.md)).
+
+---
+
+## 5. Baseline: Fine-tune from base Qwen-VL (no Robometer checkpoint)
+
+For comparison, run the same `train.py` on the same data but **without** loading a Robometer checkpoint. Training starts from the base Qwen-VL plus randomly initialized progress/preference heads.
+
+```bash
+export ROBOMETER_PROCESSED_DATASETS_PATH=/path/to/your/processed_datasets
+
+uv run python train.py \
+  model.base_model_id=Qwen/Qwen3-VL-4B-Instruct \
+  model.use_peft=true \
+  model.train_progress_head=true \
+  model.train_preference_head=true \
+  data.train_datasets=[aliangdw/robofac_rbm/robofac] \
+  data.eval_datasets=[aliangdw/robofac_rbm/robofac] \
+  training.per_device_train_batch_size=8 \
+  training.max_steps=500 \
+  training.output_dir=./logs \
+  training.exp_name=qwen3vl_lora_robofac_baseline \
+  logging.log_to=[wandb] \
+  custom_eval.reward_alignment=[aliangdw/robofac_rbm/robofac] \
+  custom_eval.policy_ranking=[aliangdw/robofac_rbm/robofac] \
+  logging.save_best.metric_names=[eval_rew_align/pearson_robofac,eval_p_rank/spearman_robofac] \
+  logging.save_best.greater_is_better=[true,true]
+```
