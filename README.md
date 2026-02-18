@@ -264,4 +264,4 @@ export ROBOMETER_PROCESSED_DATASETS_PATH=/path/to/save/processed_datasets
 
 ## 📑 License
 
-This project is licensed under the [MIT License](LICENSE).
+This project's code and our Robometer model are licensed under the MIT License. Datasets are provided under the licenses corresponding to the original datasets. Please refer to the original dataset sources for their licenses.
